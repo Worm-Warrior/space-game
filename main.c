@@ -12,10 +12,13 @@ void drawPlayer(Vector2 position, int size, Color color)
     DrawTriangleLines(v1, v2, v3, color);
 }
 
+int enemysKilled = 0;
+
 // Constants
 const int enemyRows = 5;
 const int enemyCols = 10;
-const int enemySize = 10;
+const int enemySize = 25;
+const int enemySpeed = 3;
 
 const int playerSize = 10;
 const float playerSpeed = 4.5;
@@ -26,17 +29,18 @@ const int screenHeight = 768;
 
 const int projWidth = 2;
 const int projHeight = 10;
-const int maxProjectiles = 2;
+const int maxProjectiles = 100;
 const int maxLifetime = 5;
+const int PROJ_SPEED = -10;
 
 const int shieldSize = 4;
 #define shieldCols 20
 #define shieldRows 3
-#define shieldCount 3
 
 struct Enemy
 {
     Vector2 position;
+    int speed;
     int size;
     Color color;
     bool active;
@@ -64,11 +68,6 @@ struct shieldBlock
     int size;
     Color color;
     bool active;
-};
-
-struct shieldArray
-{
-    struct shieldBlock blocks[shieldCols][shieldRows];
 };
 
 void spawnProjectiles(struct proj projectiles[], Vector2 position, Vector2 speed)
@@ -139,6 +138,41 @@ void drawEnemy(struct Enemy enemies[enemyCols][enemyRows])
     }
 }
 
+
+
+void shiftEnemiesDown(struct Enemy enemies[enemyCols][enemyRows])
+{
+    for (int i = 0; i < enemyCols; i++)
+    {
+        for (int j = 0; j < enemyRows; j++)
+        {
+            enemies[i][j].position.y += enemySize;
+            enemies[i][j].speed *= -1;
+        }
+    }
+}
+
+void updateEnemies(struct Enemy enemies[enemyCols][enemyRows])
+{
+
+    for (int i = 0; i < enemyCols; i++)
+    {
+        for (int j = 0; j < enemyRows; j++)
+        {
+            if (enemies[i][j].active)
+            {
+                enemies[i][j].position.x += enemies[i][j].speed;
+            }
+        }
+    }
+    
+    if (enemies[enemyCols-1][enemyRows-1].position.x + enemySize > screenWidth || enemies[0][0].position.x < 0)
+    {
+        shiftEnemiesDown(enemies);
+        return;
+    }
+}
+
 void spawnEnemies(struct Enemy enemies[enemyCols][enemyRows])
 {
     for (int i = 0; i < enemyCols; i++)
@@ -147,31 +181,15 @@ void spawnEnemies(struct Enemy enemies[enemyCols][enemyRows])
         {
             enemies[i][j].position.x = i * enemySize * 2 + 50;
             enemies[i][j].position.y = j * enemySize * 2 + 50;
+            enemies[i][j].size = enemySize;
             enemies[i][j].active = true;
             enemies[i][j].color = RED;
+            enemies[i][j].speed = enemySpeed;
         }
     }
 }
 
-void updateEnemies(struct Enemy enemies[enemyCols][enemyRows])
-{
-    for (int i = 0; i < enemyCols; i++)
-    {
-        for (int j = 0; j < enemyRows; j++)
-        {
-            if (enemies[i][j].active)
-            {
-                enemies[i][j].position.x += 1;
-                if (enemies[i][j].position.x > screenWidth)
-                {
-                    enemies[i][j].position.x = 0;
-                }
-            }
-        }
-    }
-}
-
-void checkCollision(struct proj projectiles[], struct Enemy enemies[enemyCols][enemyRows])
+void checkEnemyCollision(struct proj projectiles[], struct Enemy enemies[enemyCols][enemyRows])
 {
     for (int i = 0; i < maxProjectiles; i++)
     {
@@ -179,18 +197,18 @@ void checkCollision(struct proj projectiles[], struct Enemy enemies[enemyCols][e
         {
             for (int k = 0; k < enemyRows; k++)
             {
-                if (enemies[j][k].active && CheckCollisionRecs((Rectangle){projectiles[i].position.x, projectiles[i].position.y, projWidth, projHeight},
+                if (enemies[j][k].active && projectiles[i].active && CheckCollisionRecs((Rectangle){projectiles[i].position.x, projectiles[i].position.y, projWidth, projHeight},
                             (Rectangle){enemies[j][k].position.x, enemies[j][k].position.y, enemySize, enemySize}))
                 {
                     enemies[j][k].active = false;
                     projectiles[i].active = false;
+                    enemysKilled++;
                 }
             }
         }
     }
 }
 
-//FIX: The collision bug might be somewhere in here, idk.
 //NOTE: Fixed the bug, caused by not spacing blocks propperly by thier size and overlapping. 
 //To get propper spacing add (size * (col/row+1)) to give them a propper offset so they don't overlap.
 
@@ -254,6 +272,9 @@ int main()
     spawnShield(blocks2,450,650);
     spawnShield(blocks3,670,650);
 
+    struct Enemy enemies[enemyCols][enemyRows];
+    spawnEnemies(enemies);
+
     InitAudioDevice();
     struct proj projectiles[maxProjectiles];
 
@@ -277,16 +298,18 @@ int main()
             if (!isMaxOnScreen(projectiles))
             {
                 PlaySound(shoot);
-                spawnProjectiles(projectiles, player.position, (Vector2){0, -5});
+                spawnProjectiles(projectiles, player.position, (Vector2){0, PROJ_SPEED});
             }
         }
 
         if (player.position.x < 0) {player.position.x = screenWidth;}
         if (player.position.x > screenWidth) {player.position.x = 0;}
         updateProjectiles(projectiles);
+        updateEnemies(enemies);
         checkShieldCollision(projectiles, blocks);
         checkShieldCollision(projectiles, blocks2);
         checkShieldCollision(projectiles, blocks3);
+        checkEnemyCollision(projectiles, enemies);
         BeginDrawing();
         {
             // Awlays start by clearing the screen.
@@ -296,6 +319,7 @@ int main()
             drawShield(blocks);
             drawShield(blocks2);
             drawShield(blocks3);
+            drawEnemy(enemies);
         }
         EndDrawing();
     }

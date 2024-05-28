@@ -1,5 +1,5 @@
 # space-game
-Space invaders clone in C using Raylib.
+Very barebones Space Invaders clone in C using Raylib.
 
 
 **Sources used to help make the game:**
@@ -10,3 +10,5 @@ Space invaders clone in C using Raylib.
 - Clasic Gaming website (*for sounds used*): https://classicgaming.cc/classics/space-invaders/
 - Wikipedia (*got the "Soundtrack" from here*): https://en.wikipedia.org/wiki/Space_Invaders
 - Game Archive YouTube channel (*video of original space invaders for reference*): https://www.youtube.com/watch?v=MU4psw3ccUI
+  
+![image](https://github.com/Worm-Warrior/space-game/assets/159662359/e8c67535-7c35-4c7e-b2bc-6e0048c9b63e)

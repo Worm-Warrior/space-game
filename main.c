@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <raylib.h>
 #include <raymath.h>
+#include <string.h>
 
 // Function to draw a player
 void drawPlayer(Vector2 position, int size, Color color)
@@ -12,8 +13,7 @@ void drawPlayer(Vector2 position, int size, Color color)
     DrawTriangleLines(v1, v2, v3, color);
 }
 
-int enemysKilled = 0;
-
+int enemiesKilled = 0;
 // Constants
 const int enemyRows = 5;
 const int enemyCols = 10;
@@ -165,11 +165,17 @@ void updateEnemies(struct Enemy enemies[enemyCols][enemyRows])
             }
         }
     }
-    
-    if (enemies[enemyCols-1][enemyRows-1].position.x + enemySize > screenWidth || enemies[0][0].position.x < 0)
+    for (int i = 0; i < enemyCols; i++)
     {
-        shiftEnemiesDown(enemies);
-        return;
+        for (int j = 0; j < enemyRows; j++)
+        {
+            if(enemies[i][j].active && enemies[i][j].position.x + enemySize > screenWidth || 
+                    enemies[i][j].position.x < 0) 
+            {
+                shiftEnemiesDown(enemies);
+                break;
+            }
+        }
     }
 }
 
@@ -189,8 +195,10 @@ void spawnEnemies(struct Enemy enemies[enemyCols][enemyRows])
     }
 }
 
-void checkEnemyCollision(struct proj projectiles[], struct Enemy enemies[enemyCols][enemyRows])
+bool checkEnemyCollision(struct proj projectiles[], struct Enemy enemies[enemyCols][enemyRows])
 {
+    bool killed = false;
+
     for (int i = 0; i < maxProjectiles; i++)
     {
         for (int j = 0; j < enemyCols; j++)
@@ -202,16 +210,17 @@ void checkEnemyCollision(struct proj projectiles[], struct Enemy enemies[enemyCo
                 {
                     enemies[j][k].active = false;
                     projectiles[i].active = false;
-                    enemysKilled++;
+                    enemiesKilled++;
+                    killed = true;
                 }
             }
         }
     }
+    return killed;
 }
 
 //NOTE: Fixed the bug, caused by not spacing blocks propperly by thier size and overlapping. 
 //To get propper spacing add (size * (col/row+1)) to give them a propper offset so they don't overlap.
-
 
 void spawnShield(struct shieldBlock blocks[shieldCols][shieldRows],int x,int y)
 {
@@ -259,10 +268,11 @@ void checkShieldCollision(struct proj projectiles[], struct shieldBlock blocks[s
         }
     }
 }
+
 int main()
 {
     //NOTE: These should be in an array of structs, but I don't know how to make that work propperly.
-    //      who cares its just 3 calls instead of a for loop xdd.
+    //      Who cares its just 3 calls instead of a for loop xdd.
 
     struct shieldBlock blocks[shieldCols][shieldRows];
     struct shieldBlock blocks2[shieldCols][shieldRows];
@@ -276,20 +286,35 @@ int main()
     spawnEnemies(enemies);
 
     InitAudioDevice();
-    struct proj projectiles[maxProjectiles];
 
-    Sound shoot = LoadSound("shoot.wav");
+    struct proj projectiles[maxProjectiles];
+    //NOTE: Fixes the bug where the first few projectiles are drawn at 0,0.
+    for (int i = 0; i < maxProjectiles; i++)
+    {
+        projectiles[i].active = false;
+    }
+
+    char hudBuffer[1024];
+
+
     Music music = LoadMusicStream("music.ogg");
     SetMusicVolume(music, 0.5);
     PlayMusicStream(music);
+
+    Sound shoot = LoadSound("shoot.wav");
     SetSoundVolume(shoot, 0.2);
+
+    Sound killed = LoadSound("invaderkilled.wav");
+    SetSoundVolume(killed,0.2);
 
     InitWindow(screenWidth, screenHeight, "Space game");
     SetTargetFPS(fps);
 
     struct Player player = {{screenWidth/2, screenHeight - playerSize*2},playerSize,GREEN};
+
     while(!WindowShouldClose())
     {
+
         UpdateMusicStream(music);
 
         if (IsKeyDown(KEY_A)) {player.position.x -= playerSpeed;}
@@ -302,24 +327,35 @@ int main()
             }
         }
 
-        if (player.position.x < 0) {player.position.x = screenWidth;}
-        if (player.position.x > screenWidth) {player.position.x = 0;}
+        if (player.position.x < 0) {player.position.x = 0;}
+        if (player.position.x > screenWidth) {player.position.x = screenWidth;}
+        
         updateProjectiles(projectiles);
         updateEnemies(enemies);
+
         checkShieldCollision(projectiles, blocks);
         checkShieldCollision(projectiles, blocks2);
         checkShieldCollision(projectiles, blocks3);
-        checkEnemyCollision(projectiles, enemies);
+        if(checkEnemyCollision(projectiles, enemies)) {PlaySound(killed);}
+
         BeginDrawing();
         {
             // Awlays start by clearing the screen.
             ClearBackground(BLACK);
-            drawProjectiles(projectiles);
+
             drawPlayer(player.position, player.size, player.color);
+            
+            drawProjectiles(projectiles);
+            
             drawShield(blocks);
             drawShield(blocks2);
             drawShield(blocks3);
+
             drawEnemy(enemies);
+
+            // Write into the hudBuffer with snprintf, then draw the hudBuffer on screen.
+            snprintf(hudBuffer, sizeof(hudBuffer), "Score: %i", enemiesKilled*10);
+            DrawText(hudBuffer, 10, 10, 20, WHITE);
         }
         EndDrawing();
     }

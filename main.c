@@ -4,36 +4,31 @@
 #include <raymath.h>
 #include <string.h>
 
-// Function to draw a player
-void drawPlayer(Vector2 position, int size, Color color)
-{
-    Vector2 v1 = {position.x, position.y - size};
-    Vector2 v2 = {position.x - size, position.y + size};
-    Vector2 v3 = {position.x + size, position.y + size};
-    DrawTriangleLines(v1, v2, v3, color);
-}
 
 int enemiesKilled = 0;
 // Constants
-const int enemyRows = 5;
-const int enemyCols = 10;
-const int enemySize = 25;
-const int enemySpeed = 3;
+// Listen, I know these should be all capital with underscores, I forgot.
+#define enemyRows 5
+#define enemyCols 10
+#define enemySize 25
+#define enemySpeed 2
+#define enemyProjSpeed 5
+#define maxEnemyProj 5
 
-const int playerSize = 10;
-const float playerSpeed = 4.5;
+#define playerSize 10
+#define playerSpeed 4.5
 
-const int fps = 60;
-const int screenWidth = 1024;
-const int screenHeight = 768;
+#define fps 60
+#define screenWidth 1024
+#define screenHeight 768
 
-const int projWidth = 2;
-const int projHeight = 10;
-const int maxProjectiles = 100;
-const int maxLifetime = 5;
-const int PROJ_SPEED = -10;
+#define projWidth 2
+#define projHeight 10
+#define maxProjectiles 100
+#define maxLifetime 5
+#define PROJ_SPEED -10
 
-const int shieldSize = 4;
+#define shieldSize 4
 #define shieldCols 20
 #define shieldRows 3
 
@@ -70,53 +65,69 @@ struct shieldBlock
     bool active;
 };
 
-void spawnProjectiles(struct proj projectiles[], Vector2 position, Vector2 speed)
+struct enemyProj
+{
+    Vector2 position;
+    Vector2 speed;
+    bool active;
+    float lifeTime;
+};
+
+void drawPlayer(Vector2 position, int size, Color color)
+{
+    Vector2 v1 = {position.x, position.y - size};
+    Vector2 v2 = {position.x - size, position.y + size};
+    Vector2 v3 = {position.x + size, position.y + size};
+    DrawTriangleLines(v1, v2, v3, color);
+}
+
+void spawnProjectiles(struct proj playerProj[], Vector2 position, Vector2 speed)
 {
     for (int i = 0; i < maxProjectiles; i++)
     {
-        if (!projectiles[i].active)
+        if (!playerProj[i].active)
         {
-            projectiles[i].active = true;
-            projectiles[i].position = position;
-            projectiles[i].speed = speed;
-            projectiles[i].lifeTime = 0;
+            playerProj[i].active = true;
+            playerProj[i].position = position;
+            playerProj[i].speed = speed;
+            playerProj[i].lifeTime = 0;
             break;
         }
     }
 }
 
-void updateProjectiles(struct proj projectiles[])
+void updateProjectiles(struct proj playerProj[])
 {
     for (int i = 0; i < maxProjectiles; i++)
     {
-        if (projectiles[i].active)
+        if (playerProj[i].active)
         {
-            projectiles[i].position = Vector2Add(projectiles[i].position, projectiles[i].speed);
-            projectiles[i].lifeTime += 1.0/fps;
-            if (projectiles[i].position.y < 0 || projectiles[i].lifeTime > maxLifetime)
+            playerProj[i].position = Vector2Add(playerProj[i].position, playerProj[i].speed);
+            playerProj[i].lifeTime += 1.0/fps;
+            if (playerProj[i].position.y < 0 || playerProj[i].lifeTime > maxLifetime)
             {
-                projectiles[i].active = false;
+                playerProj[i].active = false;
             }
         }
     }
 }
 
-void drawProjectiles(struct proj projectiles[])
+void drawProjectiles(struct proj playerProj[])
 {
     for (int i = 0; i < maxProjectiles; i++)
     {
-        if (projectiles[i].active)
+        if (playerProj[i].active)
         {
-            DrawRectangle(projectiles[i].position.x, projectiles[i].position.y, projWidth, projHeight, GREEN);
+            DrawRectangle(playerProj[i].position.x, playerProj[i].position.y, projWidth, projHeight, GREEN);
         }
     }
 }
 
-bool isMaxOnScreen(struct proj projectiles[])
+bool isMaxOnScreen(struct proj playerProj[])
 {
     for (int i = 0; i < maxProjectiles; i++)
     {
-        if (!projectiles[i].active)
+        if (!playerProj[i].active)
         {
             return false;
         }
@@ -137,8 +148,6 @@ void drawEnemy(struct Enemy enemies[enemyCols][enemyRows])
         }
     }
 }
-
-
 
 void shiftEnemiesDown(struct Enemy enemies[enemyCols][enemyRows])
 {
@@ -195,7 +204,7 @@ void spawnEnemies(struct Enemy enemies[enemyCols][enemyRows])
     }
 }
 
-bool checkEnemyCollision(struct proj projectiles[], struct Enemy enemies[enemyCols][enemyRows])
+bool checkEnemyCollision(struct proj playerProj[], struct Enemy enemies[enemyCols][enemyRows])
 {
     bool killed = false;
 
@@ -205,11 +214,11 @@ bool checkEnemyCollision(struct proj projectiles[], struct Enemy enemies[enemyCo
         {
             for (int k = 0; k < enemyRows; k++)
             {
-                if (enemies[j][k].active && projectiles[i].active && CheckCollisionRecs((Rectangle){projectiles[i].position.x, projectiles[i].position.y, projWidth, projHeight},
-                            (Rectangle){enemies[j][k].position.x, enemies[j][k].position.y, enemySize, enemySize}))
+                if (enemies[j][k].active && playerProj[i].active && (CheckCollisionRecs((Rectangle){playerProj[i].position.x, playerProj[i].position.y, projWidth, projHeight},
+                            (Rectangle){enemies[j][k].position.x, enemies[j][k].position.y, enemySize, enemySize})))
                 {
                     enemies[j][k].active = false;
-                    projectiles[i].active = false;
+                    playerProj[i].active = false;
                     enemiesKilled++;
                     killed = true;
                 }
@@ -250,7 +259,7 @@ void drawShield(struct shieldBlock blocks[shieldCols][shieldRows])
     }
 }
 
-void checkShieldCollision(struct proj projectiles[], struct shieldBlock blocks[shieldCols][shieldRows])
+void checkShieldCollision(struct proj playerProj[], struct shieldBlock blocks[shieldCols][shieldRows])
 {
     for(int i = 0; i < maxProjectiles; i++)
     {
@@ -258,11 +267,11 @@ void checkShieldCollision(struct proj projectiles[], struct shieldBlock blocks[s
         {
             for(int k = 0; k < shieldRows; k++)
             {
-                if( blocks[j][k].active && CheckCollisionRecs((Rectangle){projectiles[i].position.x,projectiles[i].position.y,projWidth,projHeight}, 
+                if( blocks[j][k].active && CheckCollisionRecs((Rectangle){playerProj[i].position.x,playerProj[i].position.y,projWidth,projHeight}, 
                             (Rectangle) {blocks[j][k].position.x,blocks[j][k].position.y,shieldSize,shieldSize}))
                 {
                     blocks[j][k].active = false;
-                    projectiles[i].active = false;
+                    playerProj[i].active = false;
                 }
             }
         }
@@ -273,7 +282,6 @@ int main()
 {
     //NOTE: These should be in an array of structs, but I don't know how to make that work propperly.
     //      Who cares its just 3 calls instead of a for loop xdd.
-
     struct shieldBlock blocks[shieldCols][shieldRows];
     struct shieldBlock blocks2[shieldCols][shieldRows];
     struct shieldBlock blocks3[shieldCols][shieldRows];
@@ -287,11 +295,19 @@ int main()
 
     InitAudioDevice();
 
-    struct proj projectiles[maxProjectiles];
-    //NOTE: Fixes the bug where the first few projectiles are drawn at 0,0.
+    struct proj playerProj[maxProjectiles];
+
+    struct enemyProj enemyProj[maxEnemyProj];
+
+    for (int i = 0; i < maxEnemyProj; i++)
+    {
+        enemyProj[i].active = false;
+    }
+
+    //NOTE: Fixes the bug where the first few playerProj are drawn at 0,0.
     for (int i = 0; i < maxProjectiles; i++)
     {
-        projectiles[i].active = false;
+        playerProj[i].active = false;
     }
 
     char hudBuffer[1024];
@@ -320,23 +336,24 @@ int main()
         if (IsKeyDown(KEY_A)) {player.position.x -= playerSpeed;}
         if (IsKeyDown(KEY_D)) {player.position.x += playerSpeed;}
         if (IsKeyPressed(KEY_W)) {
-            if (!isMaxOnScreen(projectiles))
+            if (!isMaxOnScreen(playerProj))
             {
                 PlaySound(shoot);
-                spawnProjectiles(projectiles, player.position, (Vector2){0, PROJ_SPEED});
+                spawnProjectiles(playerProj, player.position, (Vector2){0, PROJ_SPEED});
             }
         }
 
         if (player.position.x < 0) {player.position.x = 0;}
         if (player.position.x > screenWidth) {player.position.x = screenWidth;}
         
-        updateProjectiles(projectiles);
+        updateProjectiles(playerProj);
         updateEnemies(enemies);
 
-        checkShieldCollision(projectiles, blocks);
-        checkShieldCollision(projectiles, blocks2);
-        checkShieldCollision(projectiles, blocks3);
-        if(checkEnemyCollision(projectiles, enemies)) {PlaySound(killed);}
+        checkShieldCollision(playerProj, blocks);
+        checkShieldCollision(playerProj, blocks2);
+        checkShieldCollision(playerProj, blocks3);
+
+        if(checkEnemyCollision(playerProj, enemies)) {PlaySound(killed);}
 
         BeginDrawing();
         {
@@ -345,7 +362,7 @@ int main()
 
             drawPlayer(player.position, player.size, player.color);
             
-            drawProjectiles(projectiles);
+            drawProjectiles(playerProj);
             
             drawShield(blocks);
             drawShield(blocks2);

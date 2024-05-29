@@ -12,7 +12,7 @@ int enemiesKilled = 0;
 #define enemyCols 10
 #define enemySize 25
 #define enemySpeed 2
-#define enemyProjSpeed 5
+#define enemyProjSpeed 10
 #define maxEnemyProj 5
 
 #define playerSize 10
@@ -68,7 +68,7 @@ struct shieldBlock
 struct enemyProj
 {
     Vector2 position;
-    Vector2 speed;
+    int speed;
     bool active;
     float lifeTime;
 };
@@ -184,6 +184,55 @@ void updateEnemies(struct Enemy enemies[enemyCols][enemyRows])
                 shiftEnemiesDown(enemies);
                 break;
             }
+        }
+    }
+}
+
+// spawn a random enemy projectile, start at the bottom of the enemies and work up.
+
+void spawnEnemyProjectile(struct enemyProj enemyProjectiles[], struct Enemy enemies[enemyCols][enemyRows])
+{
+    for (int i = enemyCols - 1; i >= 0; i--)
+    {
+        for (int j = 0; j < enemyRows; j++)
+        {
+                for (int k = 0; k < maxEnemyProj; k++)
+                {
+                    if (enemies[j][i].active && !enemyProjectiles[k].active)
+                    {
+                        enemyProjectiles[k].active = true;
+                        enemyProjectiles[k].position = enemies[i][j].position;
+                        enemyProjectiles[k].speed = enemyProjSpeed;
+                        break;
+                    }
+                }
+                break;
+        }
+    }
+}
+
+void updateEnemyProjectiles(struct enemyProj enemyProjectiles[])
+{
+    for (int i = 0; i < maxEnemyProj; i++)
+    {
+        if (enemyProjectiles[i].active)
+        {
+            enemyProjectiles[i].position = Vector2Add(enemyProjectiles[i].position, (Vector2){0, enemyProjectiles[i].speed});
+            if (enemyProjectiles[i].position.y > screenHeight)
+            {
+                enemyProjectiles[i].active = false;
+            }
+        }
+    }
+}
+
+void drawEnemyProjectiles(struct enemyProj enemyProjectiles[])
+{
+    for (int i = 0; i < maxEnemyProj; i++)
+    {
+        if (enemyProjectiles[i].active)
+        {
+            DrawRectangle(enemyProjectiles[i].position.x, enemyProjectiles[i].position.y, projWidth, projHeight, RED);
         }
     }
 }
@@ -345,8 +394,11 @@ int main()
 
         if (player.position.x < 0) {player.position.x = 0;}
         if (player.position.x > screenWidth) {player.position.x = screenWidth;}
+
+        if (IsKeyPressed(KEY_SPACE)) {spawnEnemyProjectile(enemyProj, enemies);}
         
         updateProjectiles(playerProj);
+        updateEnemyProjectiles(enemyProj);
         updateEnemies(enemies);
 
         checkShieldCollision(playerProj, blocks);
@@ -367,6 +419,8 @@ int main()
             drawShield(blocks);
             drawShield(blocks2);
             drawShield(blocks3);
+
+            drawEnemyProjectiles(enemyProj);
 
             drawEnemy(enemies);
 

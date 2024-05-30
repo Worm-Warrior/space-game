@@ -46,6 +46,7 @@ struct Player
     Vector2 position;
     int size;
     Color color;
+    bool isAlive;
 };
 
 
@@ -347,6 +348,23 @@ void checkShieldCollisionEnemy(struct enemyProj proj[], struct shieldBlock block
     }
 }
 
+bool CheckPlayerCollision(struct Player player, struct enemyProj proj[]) 
+{
+    Vector2 v1 = {player.position.x, player.position.y - player.size};
+    Vector2 v2 = {player.position.x - player.size, player.position.y + player.size};
+    Vector2 v3 = {player.position.x + player.size, player.position.y + player.size};
+
+    for (int i = 0; i < maxEnemyProj; i++)
+    {
+        if (CheckCollisionPointTriangle((Vector2){proj[i].position.x,proj[i].position.y + projHeight}, v1, v2, v2)
+                || CheckCollisionPointTriangle((Vector2){proj[i].position.x + projWidth, proj[i].position.y + projHeight}, v1, v2, v3))
+                {
+                    return true;
+                }
+    }
+    return false;
+}
+
 
 int main()
 {
@@ -396,13 +414,18 @@ int main()
     Sound enemyShoot = LoadSound("enemy_fire.wav");
     SetSoundVolume(enemyShoot, 0.3);
 
+    Sound playerKilled = LoadSound("player_killed.wav");
+    SetSoundVolume(playerKilled, 0.2);
+
     InitWindow(screenWidth, screenHeight, "Space game");
     SetTargetFPS(fps);
 
-    struct Player player = {{screenWidth/2, screenHeight - playerSize*2},playerSize,GREEN};
+    struct Player player = {{screenWidth/2, screenHeight - playerSize*2},playerSize,GREEN,true};
 
     while(!WindowShouldClose())
     {
+        while (player.isAlive)
+        {
 
         UpdateMusicStream(music);
 
@@ -435,6 +458,13 @@ int main()
 
         if(checkEnemyCollision(playerProj, enemies)) {PlaySound(killed);}
 
+        if(CheckPlayerCollision(player, enemyProj)) 
+        {
+            PlaySound(playerKilled);
+            player.isAlive = false;
+
+        }
+
         BeginDrawing();
         {
             // Awlays start by clearing the screen.
@@ -457,7 +487,14 @@ int main()
             // Write into the hudBuffer with snprintf, then draw the hudBuffer on screen.
             snprintf(hudBuffer, sizeof(hudBuffer), "Score: %i", enemiesKilled*10);
             DrawText(hudBuffer, 10, 10, 20, WHITE);
+
         }
+        EndDrawing();
+        }
+        BeginDrawing();
+        ClearBackground(BLACK);
+        snprintf(hudBuffer, sizeof(hudBuffer), "GAME OVER!");
+        DrawText(hudBuffer, screenWidth/3, screenHeight/2, 50, WHITE);
         EndDrawing();
     }
     CloseWindow();

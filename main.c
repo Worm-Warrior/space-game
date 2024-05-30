@@ -11,9 +11,9 @@ int enemiesKilled = 0;
 #define enemyRows 5
 #define enemyCols 10
 #define enemySize 25
-#define enemySpeed 2
+#define enemySpeed 1.5
 #define enemyProjSpeed 10
-#define maxEnemyProj 5
+#define maxEnemyProj 3
 
 #define playerSize 10
 #define playerSpeed 4.5
@@ -24,7 +24,7 @@ int enemiesKilled = 0;
 
 #define projWidth 2
 #define projHeight 10
-#define maxProjectiles 100
+#define maxProjectiles 1
 #define maxLifetime 5
 #define PROJ_SPEED -10
 
@@ -70,7 +70,6 @@ struct enemyProj
     Vector2 position;
     int speed;
     bool active;
-    float lifeTime;
 };
 
 void drawPlayer(Vector2 position, int size, Color color)
@@ -178,8 +177,8 @@ void updateEnemies(struct Enemy enemies[enemyCols][enemyRows])
     {
         for (int j = 0; j < enemyRows; j++)
         {
-            if(enemies[i][j].active && enemies[i][j].position.x + enemySize > screenWidth || 
-                    enemies[i][j].position.x < 0) 
+            if(enemies[i][j].active && (enemies[i][j].position.x + enemySize > screenWidth || 
+                    enemies[i][j].position.x < 0))
             {
                 shiftEnemiesDown(enemies);
                 break;
@@ -190,26 +189,28 @@ void updateEnemies(struct Enemy enemies[enemyCols][enemyRows])
 
 // spawn a random enemy projectile, start at the bottom of the enemies and work up.
 
-void spawnEnemyProjectile(struct enemyProj enemyProjectiles[], struct Enemy enemies[enemyCols][enemyRows])
+bool spawnEnemyProjectile(struct enemyProj enemyProjectiles[], struct Enemy enemies[enemyCols][enemyRows])
 {
-    for (int i = enemyCols - 1; i >= 0; i--)
+    int randCol = GetRandomValue(0, enemyCols);
+    int randRow = GetRandomValue(0, enemyRows);
+
+    if (enemies[randCol][randRow].active) 
     {
-        for (int j = 0; j < enemyRows; j++)
+        for (int i = 0; i < maxEnemyProj; i++)
         {
-                for (int k = 0; k < maxEnemyProj; k++)
-                {
-                    if (enemies[j][i].active && !enemyProjectiles[k].active)
-                    {
-                        enemyProjectiles[k].active = true;
-                        enemyProjectiles[k].position = enemies[i][j].position;
-                        enemyProjectiles[k].speed = enemyProjSpeed;
-                        break;
-                    }
-                }
-                break;
+            if (!enemyProjectiles[i].active)
+            {
+                enemyProjectiles[i].active = true;
+                enemyProjectiles[i].speed = enemyProjSpeed;
+                enemyProjectiles[i].position = enemies[randCol][randRow].position;
+                return true;
+            }
         }
     }
+    return false;
+
 }
+
 
 void updateEnemyProjectiles(struct enemyProj enemyProjectiles[])
 {
@@ -232,7 +233,7 @@ void drawEnemyProjectiles(struct enemyProj enemyProjectiles[])
     {
         if (enemyProjectiles[i].active)
         {
-            DrawRectangle(enemyProjectiles[i].position.x, enemyProjectiles[i].position.y, projWidth, projHeight, RED);
+            DrawRectangle(enemyProjectiles[i].position.x, enemyProjectiles[i].position.y, projWidth, projHeight, WHITE);
         }
     }
 }
@@ -327,6 +328,26 @@ void checkShieldCollision(struct proj playerProj[], struct shieldBlock blocks[sh
     }
 }
 
+void checkShieldCollisionEnemy(struct enemyProj proj[], struct shieldBlock blocks[shieldCols][shieldRows])
+{
+    for (int i = 0; i < maxEnemyProj; i++)
+    {
+        for (int j = 0; j < shieldCols; j++)
+        {
+            for (int k = 0; k < shieldRows; k++)
+            {
+                if(proj[i].active && blocks[j][k].active && CheckCollisionRecs((Rectangle){proj[i].position.x,proj[i].position.y,projWidth,projHeight}, 
+                            (Rectangle){blocks[j][k].position.x,blocks[j][k].position.y,shieldSize,shieldSize})) 
+                {
+                    blocks[j][k].active = false;
+                    proj[i].active = false;
+                }
+            }
+        }
+    }
+}
+
+
 int main()
 {
     //NOTE: These should be in an array of structs, but I don't know how to make that work propperly.
@@ -372,6 +393,9 @@ int main()
     Sound killed = LoadSound("invaderkilled.wav");
     SetSoundVolume(killed,0.2);
 
+    Sound enemyShoot = LoadSound("enemy_fire.wav");
+    SetSoundVolume(enemyShoot, 0.3);
+
     InitWindow(screenWidth, screenHeight, "Space game");
     SetTargetFPS(fps);
 
@@ -395,7 +419,7 @@ int main()
         if (player.position.x < 0) {player.position.x = 0;}
         if (player.position.x > screenWidth) {player.position.x = screenWidth;}
 
-        if (IsKeyPressed(KEY_SPACE)) {spawnEnemyProjectile(enemyProj, enemies);}
+        if (spawnEnemyProjectile(enemyProj, enemies)) {PlaySound(enemyShoot);}
         
         updateProjectiles(playerProj);
         updateEnemyProjectiles(enemyProj);
@@ -405,12 +429,18 @@ int main()
         checkShieldCollision(playerProj, blocks2);
         checkShieldCollision(playerProj, blocks3);
 
+        checkShieldCollisionEnemy(enemyProj, blocks);
+        checkShieldCollisionEnemy(enemyProj, blocks2);
+        checkShieldCollisionEnemy(enemyProj, blocks3);
+
         if(checkEnemyCollision(playerProj, enemies)) {PlaySound(killed);}
 
         BeginDrawing();
         {
             // Awlays start by clearing the screen.
             ClearBackground(BLACK);
+
+            drawEnemyProjectiles(enemyProj);
 
             drawPlayer(player.position, player.size, player.color);
             
@@ -420,9 +450,9 @@ int main()
             drawShield(blocks2);
             drawShield(blocks3);
 
-            drawEnemyProjectiles(enemyProj);
-
             drawEnemy(enemies);
+
+            //DrawCircle(enemies[enemyCols-1][enemyRows-1].position.x, enemies[enemyCols-1][enemyRows-1].position.y, 5, WHITE);
 
             // Write into the hudBuffer with snprintf, then draw the hudBuffer on screen.
             snprintf(hudBuffer, sizeof(hudBuffer), "Score: %i", enemiesKilled*10);

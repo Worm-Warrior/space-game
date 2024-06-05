@@ -26,11 +26,12 @@ int enemiesKilled = 0;
 #define projHeight 10
 #define maxProjectiles 1
 #define maxLifetime 5
-#define PROJ_SPEED -10
+#define PROJ_SPEED -15
 
 #define shieldSize 4
 #define shieldCols 20
 #define shieldRows 3
+#define shieldHeight 650
 
 struct Enemy
 {
@@ -365,6 +366,17 @@ bool CheckPlayerCollision(struct Player player, struct enemyProj proj[])
     return false;
 }
 
+bool checkEnemyPositionGameOver(struct Enemy enemies[enemyCols][enemyRows]) 
+{
+    for (int i = 0; i < enemyCols; i++) 
+    {
+        for (int j = 0; j < enemyRows; j++)
+        {
+            if(enemies[i][j].position.y >= shieldHeight) {return true;}
+        }
+    }
+    return false;
+}
 
 int main()
 {
@@ -374,9 +386,9 @@ int main()
     struct shieldBlock blocks2[shieldCols][shieldRows];
     struct shieldBlock blocks3[shieldCols][shieldRows];
 
-    spawnShield(blocks,230,650);
-    spawnShield(blocks2,450,650);
-    spawnShield(blocks3,670,650);
+    spawnShield(blocks,230,shieldHeight);
+    spawnShield(blocks2,450,shieldHeight);
+    spawnShield(blocks3,670,shieldHeight);
 
     struct Enemy enemies[enemyCols][enemyRows];
     spawnEnemies(enemies);
@@ -428,7 +440,7 @@ int main()
         {
 
         UpdateMusicStream(music);
-
+        if (IsKeyPressed(KEY_ESCAPE)) {CloseWindow();}
         if (IsKeyDown(KEY_A)) {player.position.x -= playerSpeed;}
         if (IsKeyDown(KEY_D)) {player.position.x += playerSpeed;}
         if (IsKeyPressed(KEY_W)) {
@@ -460,10 +472,11 @@ int main()
 
         if(CheckPlayerCollision(player, enemyProj)) 
         {
-            PlaySound(playerKilled);
+            PlaySound(playerKilled); 
             player.isAlive = false;
-
         }
+
+        if(checkEnemyPositionGameOver(enemies)) {player.isAlive = false;}
 
         BeginDrawing();
         {
@@ -495,6 +508,7 @@ int main()
         ClearBackground(BLACK);
         snprintf(hudBuffer, sizeof(hudBuffer), "GAME OVER!");
         DrawText(hudBuffer, screenWidth/3, screenHeight/2, 50, WHITE);
+        DrawText("Press escape to exit", screenWidth/3+30, screenHeight/2 + 100, 25, RED);
         EndDrawing();
     }
     CloseWindow();

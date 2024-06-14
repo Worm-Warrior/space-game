@@ -1,6 +1,8 @@
 # space-game
 Very barebones Space Invaders clone in C using Raylib.
 
+My first time making a game, and first time using C to any real extent.
+
 
 **Sources used to help make the game:**
 - Tsoding daily video on Raylib: https://www.youtube.com/watch?v=QqravLVpoI8
